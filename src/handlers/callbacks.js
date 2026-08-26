@@ -7,7 +7,7 @@ const HELP_MENU = {
     title:
       `<blockquote>` +
       `╔══════════════════════╗\n` +
-      `║  📜  <b>${ff('Hinata Commands')}</b>  📜  ║\n` +
+      `║  📜  <b>${ff('ѕσƒιуα Commands')}</b>  📜  ║\n` +
       `╚══════════════════════╝\n\n` +
       `sєℓєcт α cατєɢσяყ вєℓσω 👇` +
       `</blockquote>`,
@@ -150,8 +150,8 @@ const HELP_MENU = {
   help_ai: {
     title:
       `<blockquote>╔══════════════╗\n║ 🤖 <b>${ff('AI Chatbot')}</b> 🤖 ║\n╚══════════════╝\n\n` +
-      `Mention <b>Hinata</b> or reply to me — I respond with Groq Llama + memory.\n` +
-      `Hinata mirrors your mood — be romantic, she gets romantic 💗\n\n` +
+      `Mention <b>ѕσƒιуα</b> or reply to me — I respond with Groq Llama + memory.\n` +
+      `ѕσƒιуα mirrors your mood — be romantic, she gets romantic 💗\n\n` +
       `Groq AI also moderates chat for NSFW / gore / scam content.</blockquote>`,
     back: 'help_main',
   },
@@ -177,11 +177,11 @@ const HELP_MENU = {
   },
   about: {
     title:
-      `<blockquote>╔══════════════════════╗\n║  🌸  <b>${ff('About Hinata')}</b>  🌸  ║\n╚══════════════════════╝\n\n` +
+      `<blockquote>╔══════════════════════╗\n║  🌸  <b>${ff('About ѕσƒιуα')}</b>  🌸  ║\n╚══════════════════════╝\n\n` +
       `A Rose-grade Telegram group manager with built-in Groq AI moderation, games, economy, and an AI chatbot persona.\n\n` +
       `🛠️ <b>${ff('Stack')}</b>\n• Telegraf 4 + MongoDB\n• Groq Llama-3 for AI\n• NSFWJS vision guard\n\n` +
-      `👑 <b>${ff('Owner')}</b>: @aiused\n` +
-      `👨‍💻 <b>${ff('Developer')}</b>: @aiused</blockquote>`,
+      `👑 <b>${ff('Owner')}</b>: @lll_SHIV_lll\n` +
+      `👨‍💻 <b>${ff('Developer')}</b>: @sukoon_s</blockquote>`,
     rows: [
       [[`👑 ${ff('Contact Owner')}`, 'owner_contact']],
     ],

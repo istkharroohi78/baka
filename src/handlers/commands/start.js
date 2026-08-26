@@ -12,9 +12,9 @@ const LOADING_FRAMES = [
   `${ff('loading')}.`,
   `${ff('loading')}..`,
   `${ff('loading')}...`,
-  '🌸 нιиαтα',
-  '🌸 нιиαтα χ',
-  '👑 нιиαтα χ ιиfιиιту',
+  '🔥 вєтα',
+  '🔥 вєтα вσт',
+  '👑 вєтα вσт нυв',
   '✅ ѕтαятє∂ 👑',
 ];
 
@@ -97,10 +97,10 @@ const startCommand = async (ctx) => {
   const startMsg =
     `<blockquote>` +
     `╔══════════════════════╗\n` +
-    `║  🌸  <b>нιηαтα вσт</b>  🌸  ║\n` +
+    `║  🌸  <b>ѕσƒιуα вσт</b>  🌸  ║\n` +
     `╚══════════════════════╝\n\n` +
     `👋 нєу, <b>${username}</b>!\n` +
-    `ι αɱ <b>Hinata</b> — ყσυя αℓℓ-ιη-σηє\n` +
+    `ι αɱ <b>ѕσƒιуα</b> — ყσυя αℓℓ-ιη-σηє\n` +
     `🌺 Rσsє-Grα∂є Gяσυρ Mαηαɢєя 🌺\n\n` +
     `╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\n` +
     `⚡ <b>${ff('Uptime')}</b>  : ${upt}\n` +
@@ -109,7 +109,7 @@ const startCommand = async (ctx) => {
     `🖥️ <b>${ff('Host')}</b>    : ${os.hostname()}\n` +
     `╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌\n` +
     `💡 υsє /help тσ sєє αℓℓ cσɱɱαη∂s\n` +
-    `🌸 <b>|ρσωєяє∂ вү нιηαтα χ ιηfιηιτყ|</b>` +
+    `🌸 <b>|ρσωєяє∂ вү вєтα вσт нυв|</b>` +
     `</blockquote>`;
 
   const kb = Markup.inlineKeyboard([
@@ -118,18 +118,30 @@ const startCommand = async (ctx) => {
     ],
     [
       Markup.button.callback(`📜 ${ff('Commands')}`, 'help_main'),
-      Markup.button.url(`🌐 ${ff('Website')}`, 'https://gmsxabouttgaura.netlify.app/'),
+      Markup.button.url(`🌐 ${ff('Website')}`, 'https://beatbothub.netlify.app/'),
     ],
     [
-      Markup.button.url(`👑 ${ff('My Lord')}`, 'https://t.me/aiused'),
-      Markup.button.url(`📢 ${ff('Channel')}`, 'https://t.me/+1NRRqUd1replNTM1'),
+      Markup.button.url(`👑 ${ff('My Lord')}`, 'https://t.me/SUKOON_S'),
+      Markup.button.url(`📢 ${ff('Channel')}`, 'https://t.me/BETABOT_HUB'),
     ],
     [
       Markup.button.callback(`ℹ️ ${ff('About')}`, 'about'),
     ],
   ]);
 
-  const photoUrl = process.env.START_IMAGE_URL || 'https://i.ibb.co/MzCcZKz/image.jpg';
+  // Array of images for random selection
+  const startImages = [
+    'https://n.uguu.se/HnuyNxVc.jpg',
+    'https://n.uguu.se/pPxpzPZQ.jpg',
+    'https://h.uguu.se/nkbKLcOi.jpg',
+    'https://d.uguu.se/MLrAXCdD.jpg',
+    'https://d.uguu.se/GYzBYbQE.jpg',
+    'https://n.uguu.se/EFAzlSTC.jpg'
+  ];
+
+  // Pick a random image from the array
+  const photoUrl = startImages[Math.floor(Math.random() * startImages.length)];
+
   try {
     await ctx.replyWithPhoto(photoUrl, {
       caption: startMsg,

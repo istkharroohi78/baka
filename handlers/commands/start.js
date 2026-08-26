@@ -22,7 +22,7 @@ async function startCommand(ctx) {
                       ➥ ᴄᴘᴜ ʟᴏᴀᴅ: 11.2%
                       ➥ ʀᴀᴍ ᴄᴏɴsᴜᴍᴘᴛɪᴏɴ: 17.5%
                       •──────────────────────•
-                      🌺 ᴘᴏᴡєʀєᴅ ʙʏ » |𝐌 ᴀ ᴅ ᴀ ʀ ᴀ •| (t.me/YOUR_MADARA_BRO)
+                      🌺 ᴘᴏᴡєʀєᴅ ʙʏ » |THE SHIV| (t.me/SUKOON_S)
                       •──────────────────────•`;
 
     const keyboard = Markup.inlineKeyboard([

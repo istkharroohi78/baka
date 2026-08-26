@@ -65,12 +65,12 @@ const ping = async (ctx) => {
     `┃  🧠 <b>Heap</b>    : <b>${heap} MB</b>\n` +
     `┃  🛰 <b>Node</b>    : <b>${process.version}</b>\n` +
     `┗━━━━━━━━━━━━━━━━━━━━━┛\n` +
-    `🌸 <i>Hinata is awake and watching.</i></blockquote>`;
+    `🌸 <i>ѕσƒιуα is awake and watching.</i></blockquote>`;
 
   try {
     await ctx.replyWithPhoto(
       { url: config.pingImageUrl },
-      { caption: text, parse_mode: 'HTML', has_spoiler: true }
+      { caption: text, parse_mode: 'HTML', has_spoiler: false }
     );
   } catch {
     await safeReply(ctx, text);
@@ -81,7 +81,7 @@ const runs = async (ctx) => {
   const replies = [
     'Yes?', 'Hmm?', 'I am here.', 'What\'s up?',
     'Ready to serve.', 'Speak, master.', 'On it.',
-    'Hinata-chan reporting!', 'Reading minds is hard.',
+    'ѕσƒιуα-chan reporting!', 'Reading minds is hard.',
     '👀', '✨', '🌸', '🍵',
   ];
   await ctx.reply(replies[Math.floor(Math.random() * replies.length)]);

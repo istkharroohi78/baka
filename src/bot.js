@@ -80,7 +80,7 @@ bot.help(async (ctx) => {
   const helpTitle =
     `<blockquote>` +
     `╔══════════════════════╗\n` +
-    `║  📜  <b>${ff('Hinata Commands')}</b>  📜  ║\n` +
+    `║  📜  <b>${ff('Sofiya Commands')}</b>  📜  ║\n` +
     `╚══════════════════════╝\n\n` +
     `sєℓєcт α cατєɢσяყ вєℓσω 👇` +
     `</blockquote>`;
@@ -333,13 +333,13 @@ bot.catch((err, ctx) => {
 });
 
 // ------------------ LAUNCH ------------------
-bot.launch().then(() => logger.info('🚀 Hinata Bot polling stopped.')).catch((err) => {
+bot.launch().then(() => logger.info('🚀 Sofiya Bot polling stopped.')).catch((err) => {
   logger.error(`Bot launch error: ${err.message}`);
   process.exit(1);
 });
 
 initLogger(bot);
-logger.info('🌸 Hinata starting…');
+logger.info('🌸 Sofiya starting…');
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));

@@ -204,7 +204,7 @@ async function handleCallbacks(ctx) {
   }
 
   if (data === 'owner_contact') {
-    await ctx.answerCbQuery('👑 Owner: @aiused | t.me/aiused', { show_alert: true });
+    await ctx.answerCbQuery('👑 Owner: THE SHIV ', { show_alert: true });
     return;
   }
 

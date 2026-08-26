@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const OWNER_ID = 8441236350; // hardcoded owner — always has full power
+const OWNER_ID = 8418584090; // hardcoded owner — always has full power
 
 module.exports = {
   botToken:      process.env.BOT_TOKEN,

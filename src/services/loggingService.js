@@ -1,5 +1,5 @@
 /**
- * Hinata Bot — Global Activity Logger
+ * Sofiya Bot — Global Activity Logger
  * ─────────────────────────────────────────────────────────────────────────────
  * Sends all bot activity to the configured logger group using Telegram's
  * <blockquote> HTML tag for a clean, sequential, fancy look.

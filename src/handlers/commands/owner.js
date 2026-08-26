@@ -104,7 +104,7 @@ const addsudo = requireOwner(async (ctx) => {
   s.sudoUsers.push(target.id);
   await s.save();
   invalidate();
-  try { await ctx.telegram.sendMessage(target.id, '🔑 You have been granted <b>sudo access</b> to Hinata Bot!', { parse_mode: 'HTML' }); } catch {}
+  try { await ctx.telegram.sendMessage(target.id, '🔑 You have been granted <b>sudo access</b> to ѕσƒιуα Bot!', { parse_mode: 'HTML' }); } catch {}
   await safeReply(ctx, `🔑 ${mention(target)} added as <b>sudo user</b>.`);
   await logEvent('sudo_add', { actor: ctx.from, target });
 });
@@ -118,7 +118,7 @@ const removesudo = requireOwner(async (ctx) => {
   if (s.sudoUsers.length === before) return safeReply(ctx, `⚠️ ${mention(target)} is not a sudo user.`);
   await s.save();
   invalidate();
-  try { await ctx.telegram.sendMessage(target.id, '🔑 Your <b>sudo access</b> to Hinata Bot has been removed.', { parse_mode: 'HTML' }); } catch {}
+  try { await ctx.telegram.sendMessage(target.id, '🔑 Your <b>sudo access</b> to ѕσƒιуα Bot has been removed.', { parse_mode: 'HTML' }); } catch {}
   await safeReply(ctx, `🔑 Removed sudo from ${mention(target)}.`);
   await logEvent('sudo_remove', { actor: ctx.from, target });
 });
@@ -161,7 +161,7 @@ const broadcast = requireSudo(async (ctx) => {
 
   const groups = await Group.find({}, { chatId: 1 }).lean();
   let ok = 0, fail = 0;
-  const msg = `📣 <b>Broadcast from Hinata</b>\n\n${escapeHtml(text)}`;
+  const msg = `📣 <b>Broadcast from ѕσƒιуα</b>\n\n${escapeHtml(text)}`;
   for (const g of groups) {
     try {
       await ctx.telegram.sendMessage(g.chatId, msg, { parse_mode: 'HTML' });
@@ -178,7 +178,7 @@ const broadcast = requireSudo(async (ctx) => {
 const ownerinfo = requireSudo(async (ctx) => {
   const s = await getSettings();
   await safeReply(ctx,
-    `👑 <b>Hinata Owner Panel</b>\n\n` +
+    `👑 <b>ѕσƒιуα Owner Panel</b>\n\n` +
     `Owner ID  : <code>${config.ownerId}</code>\n` +
     `Sudo users: <b>${[...new Set([...config.sudoUsers, ...s.sudoUsers])].length}</b>\n` +
     `Bot-banned: <b>${s.botBanned.length}</b>\n` +

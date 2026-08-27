@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 const limiter = require('../utils/groqLimiter');
 const config  = require('../config/index');
 
-const MODEL = 'llama-3.1-70b-versatile';
+const MODEL = 'llama-3.1-8b-instant';
 
 // Hard wall-clock limit for every AI chatbot call — if it doesn't respond in
 // time the user gets a polite "busy" message and the update pipeline moves on.

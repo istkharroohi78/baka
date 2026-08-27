@@ -1,3 +1,4 @@
+const { GoogleGenerativeAI } = require('@google/generative-ai'); // <-- Gemini SDK added
 const ChatMemory = require('../models/ChatMemory');
 const logger = require('../utils/logger');
 const limiter = require('../utils/groqLimiter');
@@ -74,8 +75,8 @@ const OWNER_REGEX = /\b(who(('?s| is) (your|ur|the) (owner|creator|master|lord|d
 // ── main ───────────────────────────────────────────────────────────────────────
 
 async function getHinataReply(userId, chatId, message) {
-  if (!config.groqApiKey && !config.groqApiKey2)
-    return 'My AI brain is not configured yet. Ask the owner to set GROQ_API_KEY. 🌸';
+  if (!config.groqApiKey && !config.groqApiKey2 && (!config.geminiApiKeys || config.geminiApiKeys.length === 0))
+    return 'My AI brain is not configured yet. Ask the owner to set API Keys. 🌸';
 
   if (OWNER_REGEX.test(message))
     return 'My cute owner is @aiused 👑🌸 They created me with lots of love! ✨';
@@ -95,7 +96,9 @@ async function getHinataReply(userId, chatId, message) {
   while (memory.messages.length > 14) memory.messages.shift();
 
   const system = buildSystem(mood, recentMoods);
+  let finalReply = null;
 
+  // ── Attempt 1: Groq API ──
   try {
     const res = await Promise.race([
       limiter.call((groq) =>
@@ -110,20 +113,67 @@ async function getHinataReply(userId, chatId, message) {
         })
       ),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`chatbot timeout after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS)
+        setTimeout(() => reject(new Error(`Groq timeout after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS)
       ),
     ]);
 
-    const reply = res.choices[0]?.message?.content?.trim() || '…';
-    memory.messages.push({ role: 'assistant', content: reply, timestamp: new Date() });
-    while (memory.messages.length > 14) memory.messages.shift();
-    memory.lastUpdated = new Date();
-    await memory.save();
-    return reply;
-  } catch (e) {
-    logger.warn(`Hinata AI error: ${e.message?.slice(0, 120)}`);
-    return 'Mmm, I\'m a little overwhelmed right now… try again in a bit? 🌸';
+    finalReply = res.choices[0]?.message?.content?.trim() || '…';
+
+  } catch (groqError) {
+    logger.warn(`Hinata Groq error: ${groqError.message?.slice(0, 120)}. Falling back to Gemini...`);
   }
+
+  // ── Attempt 2: Gemini API Fallback (Key Rotation) ──
+  if (!finalReply && config.geminiApiKeys && config.geminiApiKeys.length > 0) {
+    for (let i = 0; i < config.geminiApiKeys.length; i++) {
+      try {
+        const genAI = new GoogleGenerativeAI(config.geminiApiKeys[i]);
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          systemInstruction: system // Gemini handles system prompts separately
+        });
+
+        // Convert Groq/OpenAI history format to Gemini format
+        const geminiHistory = memory.messages.map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user', // 'assistant' becomes 'model'
+          parts: [{ text: m.content }]
+        }));
+
+        const res = await Promise.race([
+          model.generateContent({
+            contents: geminiHistory,
+            generationConfig: {
+              temperature: mood === 'romantic' ? 0.85 : mood === 'sad' ? 0.6 : 0.7,
+              maxOutputTokens: 220,
+            }
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Gemini timeout after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS)
+          )
+        ]);
+
+        finalReply = res.response.text().trim() || '…';
+        logger.info(`Hinata successfully replied using Gemini Key #${i + 1} 🌸`);
+        break; // Stop loop if successful
+
+      } catch (geminiError) {
+        logger.warn(`Hinata Gemini Key #${i + 1} error: ${geminiError.message?.slice(0, 120)}`);
+      }
+    }
+  }
+
+  // ── Final Checks & Save Memory ──
+  if (!finalReply) {
+    // If BOTH Groq and ALL Gemini keys fail
+    finalReply = 'Mmm, I\'m a little overwhelmed right now… try again in a bit? 🌸';
+  }
+
+  memory.messages.push({ role: 'assistant', content: finalReply, timestamp: new Date() });
+  while (memory.messages.length > 14) memory.messages.shift();
+  memory.lastUpdated = new Date();
+  await memory.save();
+  
+  return finalReply;
 }
 
 module.exports = { getHinataReply, detectMood };

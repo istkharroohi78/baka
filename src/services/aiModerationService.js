@@ -1,30 +1,34 @@
 'use strict';
 
 /**
- * NSFW Moderation — 3-layer pipeline
+ * NSFW Moderation — 4-layer pipeline
  *
  * TEXT:
  *   1. Rule engine (instant, zero network)
- *   2. Groq AI text scan (5-s timeout) for edge cases
- *   3. AI down → rule result is final
+ *   2. Groq AI text scan (5-s timeout)
+ *   3. Gemini AI text scan (Fallback, checks multiple keys)
+ *   4. AI down -> rule result is final
  *
  * IMAGE:
- *   1. Caption → full rule engine (instant)
+ *   1. Caption -> full rule engine (instant)
  *   2. Groq AI vision scan (5-s timeout)
- *   3. AI down → local nsfwjs ML classifier (runs on-device, no API key)
- *   4. All fail → fail open
- *
- * The cooldown / caching lives in moderation.js.
- * Images are NEVER skipped here — only in moderation.js cache paths.
+ *   3. Gemini AI vision scan (Fallback, checks multiple keys)
+ *   4. AI down -> local nsfwjs ML classifier (runs on-device)
+ *   5. All fail -> fail open
  */
 
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const config  = require('../config/index');
 const logger  = require('../utils/logger');
 const limiter = require('../utils/groqLimiter');
 const { checkText, checkImageCaption } = require('../utils/nsfwRules');
 const { classifyImage } = require('../utils/localImageClassifier');
 
+// API Keys from config
+const geminiKeys = config.geminiApiKeys || [];
+
 const TEXT_MODEL   = 'llama-3.1-8b-instant';
-const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const VISION_MODEL = 'meta-llama/llama-3.2-11b-vision-preview'; // Note: Changed to valid Groq vision model
 const AI_TIMEOUT   = 5_000;
 
 // ── AI prompts ────────────────────────────────────────────────────────────────
@@ -76,6 +80,8 @@ function withTimeout(promise, ms) {
     ),
   ]);
 }
+
+// -- GROQ HANDLERS --
 
 async function aiCheckText(text) {
   try {
@@ -129,6 +135,63 @@ async function aiCheckImage(buffer, mime) {
   }
 }
 
+// -- GEMINI FALLBACK HANDLERS --
+
+async function geminiCheckText(text) {
+  if (geminiKeys.length === 0) return null;
+
+  for (let i = 0; i < geminiKeys.length; i++) {
+    try {
+      const genAI = new GoogleGenerativeAI(geminiKeys[i]);
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-1.5-flash',
+        systemInstruction: TEXT_SYSTEM
+      });
+
+      const res = await withTimeout(model.generateContent(text.slice(0, 1500)), AI_TIMEOUT);
+      const reply = res.response.text().trim().toUpperCase();
+      return reply.startsWith('NSFW');
+      
+    } catch (e) {
+      logger.warn(`Gemini text-mod Key #${i + 1} failed: ${e.message?.slice(0, 100)}`);
+      // Loop continues to the next key
+    }
+  }
+  return null; // All Gemini keys failed
+}
+
+async function geminiCheckImage(buffer, mime) {
+  if (geminiKeys.length === 0) return null;
+
+  for (let i = 0; i < geminiKeys.length; i++) {
+    try {
+      const genAI = new GoogleGenerativeAI(geminiKeys[i]);
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-1.5-flash',
+        systemInstruction: VISION_SYSTEM
+      });
+
+      const imagePart = {
+        inlineData: {
+          data: buffer.toString('base64'),
+          mimeType: mime
+        }
+      };
+
+      // Pass array containing text prompt and image
+      const res = await withTimeout(model.generateContent(['Classify this image:', imagePart]), AI_TIMEOUT);
+      const reply = res.response.text().trim().toUpperCase();
+      return reply.startsWith('NSFW');
+      
+    } catch (e) {
+      logger.warn(`Gemini vision-mod Key #${i + 1} failed: ${e.message?.slice(0, 100)}`);
+      // Loop continues to the next key
+    }
+  }
+  return null;
+}
+
+
 // ── public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -144,12 +207,19 @@ async function scanText(text) {
     return true;
   }
 
-  // Layer 2: AI for edge cases
-  const aiResult = await aiCheckText(text);
+  // Layer 2: Groq AI for edge cases
+  let aiResult = await aiCheckText(text);
+  
+  // Layer 3: Gemini AI Fallback
+  if (aiResult === null) {
+    logger.info('Text: Groq unavailable — falling back to Gemini AI');
+    aiResult = await geminiCheckText(text);
+  }
+
   if (aiResult === true)  return true;
   if (aiResult === false) return false;
 
-  // Layer 3: AI unavailable — trust rules (already said SAFE)
+  // Layer 4: AI completely unavailable — trust rules (already said SAFE)
   return false;
 }
 
@@ -157,24 +227,32 @@ async function scanText(text) {
  * Scan an image buffer. Returns true (NSFW) or false (safe). Never throws.
  *
  * Pipeline:
- *   1. Groq vision AI  (fast, highly accurate)
- *   2. local nsfwjs ML (on-device, no API, still accurate)
- *   3. fail open
+ *   1. Groq vision AI
+ *   2. Gemini vision AI (Fallback)
+ *   3. local nsfwjs ML (on-device)
+ *   4. fail open
  */
 async function scanImage(imageBuffer, mime = 'image/jpeg') {
   if (!imageBuffer) return false;
 
   // Layer 1: Groq AI vision (primary)
-  const aiResult = await aiCheckImage(imageBuffer, mime);
+  let aiResult = await aiCheckImage(imageBuffer, mime);
+  
+  // Layer 2: Gemini AI vision (Fallback)
+  if (aiResult === null) {
+    logger.info('Image: Groq unavailable — falling back to Gemini AI');
+    aiResult = await geminiCheckImage(imageBuffer, mime);
+  }
+
   if (aiResult === true)  return true;
   if (aiResult === false) return false;
 
-  // Layer 2: Groq unavailable → local nsfwjs ML classifier
-  logger.info('Image: Groq unavailable — falling back to local nsfwjs classifier');
+  // Layer 3: Both AI APIs unavailable → local nsfwjs ML classifier
+  logger.info('Image: AI APIs unavailable — falling back to local nsfwjs classifier');
   const localResult = await classifyImage(imageBuffer);
   if (localResult) return true;
 
-  // Layer 3: both unavailable → fail open
+  // Layer 4: All unavailable → fail open
   return false;
 }
 
@@ -188,8 +266,7 @@ async function scanCaption(caption) {
     logger.warn(`NSFW [caption-rules] ${reason}`);
     return true;
   }
-  const aiResult = await aiCheckText(caption);
-  return aiResult === true;
+  return await scanText(caption); // Reusing the scanText pipeline (Groq -> Gemini)
 }
 
 const scanContent = scanText;

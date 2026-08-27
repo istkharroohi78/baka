@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@bull-board/express": "^6.10.0",
+    "@google/generative-ai": "^0.21.0",
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-node": "^4.22.0",
     "bullmq": "^5.40.0",

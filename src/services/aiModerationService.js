@@ -23,7 +23,7 @@ const limiter = require('../utils/groqLimiter');
 const { checkText, checkImageCaption } = require('../utils/nsfwRules');
 const { classifyImage } = require('../utils/localImageClassifier');
 
-const TEXT_MODEL   = 'llama-3.1-70b-versatile';
+const TEXT_MODEL   = 'llama-3.1-8b-instant';
 const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const AI_TIMEOUT   = 5_000;
 

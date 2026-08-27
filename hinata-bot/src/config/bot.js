@@ -55,7 +55,7 @@ bot.on('callback_query', handleCallbacks);
 
 // ====================== LAUNCH BOT ======================
 bot.launch()
-  .then(() => logger.info('🚀 Hinata Bot is running successfully!'))
+  .then(() => logger.info('🚀 Sofiya Bot is running successfully!'))
   .catch(err => logger.error('Bot Launch Error:', err));
 
 // Graceful Shutdown

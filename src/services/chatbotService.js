@@ -1,10 +1,10 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai'); // <-- Gemini SDK added
 const ChatMemory = require('../models/ChatMemory');
 const logger = require('../utils/logger');
 const limiter = require('../utils/groqLimiter');
 const config  = require('../config/index');
 
-const MODEL = 'llama-3.1-8b-instant';
+// Updated to the stable Groq model to prevent 404 errors
+const MODEL = 'llama3-8b-8192';
 
 // Hard wall-clock limit for every AI chatbot call — if it doesn't respond in
 // time the user gets a polite "busy" message and the update pipeline moves on.
@@ -75,7 +75,7 @@ const OWNER_REGEX = /\b(who(('?s| is) (your|ur|the) (owner|creator|master|lord|d
 // ── main ───────────────────────────────────────────────────────────────────────
 
 async function getHinataReply(userId, chatId, message) {
-  if (!config.groqApiKey && !config.groqApiKey2 && (!config.geminiApiKeys || config.geminiApiKeys.length === 0))
+  if (!config.groqApiKey && !config.groqApiKey2 && !config.vercelApiUrl)
     return 'My AI brain is not configured yet. Ask the owner to set API Keys. 🌸';
 
   if (OWNER_REGEX.test(message))
@@ -120,51 +120,55 @@ async function getHinataReply(userId, chatId, message) {
     finalReply = res.choices[0]?.message?.content?.trim() || '…';
 
   } catch (groqError) {
-    logger.warn(`Hinata Groq error: ${groqError.message?.slice(0, 120)}. Falling back to Gemini...`);
+    logger.warn(`Hinata Groq error: ${groqError.message?.slice(0, 120)}. Falling back to Vercel API...`);
   }
 
-  // ── Attempt 2: Gemini API Fallback (Key Rotation) ──
-  if (!finalReply && config.geminiApiKeys && config.geminiApiKeys.length > 0) {
-    for (let i = 0; i < config.geminiApiKeys.length; i++) {
-      try {
-        const genAI = new GoogleGenerativeAI(config.geminiApiKeys[i]);
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
-          systemInstruction: system // Gemini handles system prompts separately
-        });
+  // ── Attempt 2: Vercel API Fallback ──
+  if (!finalReply && config.vercelApiUrl) {
+    try {
+      // Create a standard messages array payload for Vercel
+      const vercelPayload = {
+        messages: [
+          { role: 'system', content: system },
+          ...memory.messages.map(m => ({ role: m.role, content: m.content }))
+        ],
+        temperature: mood === 'romantic' ? 0.85 : mood === 'sad' ? 0.6 : 0.7
+      };
 
-        // Convert Groq/OpenAI history format to Gemini format
-        const geminiHistory = memory.messages.map(m => ({
-          role: m.role === 'assistant' ? 'model' : 'user', // 'assistant' becomes 'model'
-          parts: [{ text: m.content }]
-        }));
+      const response = await Promise.race([
+        fetch(config.vercelApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(vercelPayload)
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Vercel timeout after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS)
+        )
+      ]);
 
-        const res = await Promise.race([
-          model.generateContent({
-            contents: geminiHistory,
-            generationConfig: {
-              temperature: mood === 'romantic' ? 0.85 : mood === 'sad' ? 0.6 : 0.7,
-              maxOutputTokens: 220,
-            }
-          }),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error(`Gemini timeout after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS)
-          )
-        ]);
-
-        finalReply = res.response.text().trim() || '…';
-        logger.info(`Hinata successfully replied using Gemini Key #${i + 1} 🌸`);
-        break; // Stop loop if successful
-
-      } catch (geminiError) {
-        logger.warn(`Hinata Gemini Key #${i + 1} error: ${geminiError.message?.slice(0, 120)}`);
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      
+      const data = await response.json();
+      
+      // Handle various response formats depending on how your Vercel API is built
+      finalReply = (data.reply || data.response || data.text || (data.choices && data.choices[0]?.message?.content) || '').trim();
+      
+      if (finalReply) {
+        logger.info(`Hinata successfully replied using Vercel API 🌸`);
+      } else {
+        throw new Error('Vercel API returned an empty response.');
       }
+
+    } catch (vercelError) {
+      logger.warn(`Hinata Vercel error: ${vercelError.message?.slice(0, 120)}`);
     }
   }
 
   // ── Final Checks & Save Memory ──
   if (!finalReply) {
-    // If BOTH Groq and ALL Gemini keys fail
+    // If BOTH Groq and Vercel APIs fail
     finalReply = 'Mmm, I\'m a little overwhelmed right now… try again in a bit? 🌸';
   }
 

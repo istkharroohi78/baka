@@ -9,9 +9,9 @@
   },
   "dependencies": {
     "@bull-board/express": "^6.10.0",
-    "@google/generative-ai": "^0.21.0",
     "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-node": "^4.22.0",
+    "axios": "^1.7.9",
     "bullmq": "^5.40.0",
     "dotenv": "^17.4.2",
     "groq-sdk": "^1.1.2",

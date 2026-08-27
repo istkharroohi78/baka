@@ -6,29 +6,28 @@
  * TEXT:
  *   1. Rule engine (instant, zero network)
  *   2. Groq AI text scan (5-s timeout)
- *   3. Gemini AI text scan (Fallback, checks multiple keys)
+ *   3. Vercel API text scan (Fallback)
  *   4. AI down -> rule result is final
  *
  * IMAGE:
  *   1. Caption -> full rule engine (instant)
  *   2. Groq AI vision scan (5-s timeout)
- *   3. Gemini AI vision scan (Fallback, checks multiple keys)
+ *   3. Vercel API vision scan (Fallback)
  *   4. AI down -> local nsfwjs ML classifier (runs on-device)
  *   5. All fail -> fail open
  */
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const config  = require('../config/index');
 const logger  = require('../utils/logger');
 const limiter = require('../utils/groqLimiter');
 const { checkText, checkImageCaption } = require('../utils/nsfwRules');
 const { classifyImage } = require('../utils/localImageClassifier');
 
-// API Keys from config
-const geminiKeys = config.geminiApiKeys || [];
+// Vercel API URL from config (e.g., https://your-api.vercel.app/api/chat)
+const VERCEL_API_URL = config.vercelApiUrl; 
 
-const TEXT_MODEL   = 'llama-3.1-8b-instant';
-const VISION_MODEL = 'meta-llama/llama-3.2-11b-vision-preview'; // Note: Changed to valid Groq vision model
+const TEXT_MODEL   = 'llama3-8b-8192'; // Using stable Groq model
+const VISION_MODEL = 'llama-3.2-11b-vision-preview'; 
 const AI_TIMEOUT   = 5_000;
 
 // ── AI prompts ────────────────────────────────────────────────────────────────
@@ -135,60 +134,78 @@ async function aiCheckImage(buffer, mime) {
   }
 }
 
-// -- GEMINI FALLBACK HANDLERS --
+// -- VERCEL API FALLBACK HANDLERS --
 
-async function geminiCheckText(text) {
-  if (geminiKeys.length === 0) return null;
-
-  for (let i = 0; i < geminiKeys.length; i++) {
-    try {
-      const genAI = new GoogleGenerativeAI(geminiKeys[i]);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: TEXT_SYSTEM
-      });
-
-      const res = await withTimeout(model.generateContent(text.slice(0, 1500)), AI_TIMEOUT);
-      const reply = res.response.text().trim().toUpperCase();
-      return reply.startsWith('NSFW');
-      
-    } catch (e) {
-      logger.warn(`Gemini text-mod Key #${i + 1} failed: ${e.message?.slice(0, 100)}`);
-      // Loop continues to the next key
-    }
+async function vercelCheckText(text) {
+  if (!VERCEL_API_URL) {
+    logger.warn('Vercel API URL not configured.');
+    return null;
   }
-  return null; // All Gemini keys failed
+
+  try {
+    const response = await withTimeout(
+      fetch(VERCEL_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        // यहाँ पेलोड (body) भेजा जा रहा है। अगर आपकी API का फॉर्मेट अलग है, तो इसे बदल लें।
+        body: JSON.stringify({
+          system: TEXT_SYSTEM,
+          prompt: text.slice(0, 1500)
+        })
+      }),
+      AI_TIMEOUT
+    );
+
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    
+    const data = await response.json();
+    
+    // आपकी API जो भी जवाब देती है (जैसे data.reply, data.response, या data.text) उसे यहाँ सेट करें
+    const reply = (data.reply || data.response || data.text || '').trim().toUpperCase();
+    return reply.startsWith('NSFW');
+      
+  } catch (e) {
+    logger.warn(`Vercel text-mod failed: ${e.message?.slice(0, 100)}`);
+    return null; 
+  }
 }
 
-async function geminiCheckImage(buffer, mime) {
-  if (geminiKeys.length === 0) return null;
-
-  for (let i = 0; i < geminiKeys.length; i++) {
-    try {
-      const genAI = new GoogleGenerativeAI(geminiKeys[i]);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: VISION_SYSTEM
-      });
-
-      const imagePart = {
-        inlineData: {
-          data: buffer.toString('base64'),
-          mimeType: mime
-        }
-      };
-
-      // Pass array containing text prompt and image
-      const res = await withTimeout(model.generateContent(['Classify this image:', imagePart]), AI_TIMEOUT);
-      const reply = res.response.text().trim().toUpperCase();
-      return reply.startsWith('NSFW');
-      
-    } catch (e) {
-      logger.warn(`Gemini vision-mod Key #${i + 1} failed: ${e.message?.slice(0, 100)}`);
-      // Loop continues to the next key
-    }
+async function vercelCheckImage(buffer, mime) {
+  if (!VERCEL_API_URL) {
+    return null;
   }
-  return null;
+
+  try {
+    const dataUrl = `data:${mime};base64,${buffer.toString('base64')}`;
+    
+    const response = await withTimeout(
+      fetch(VERCEL_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          system: VISION_SYSTEM,
+          prompt: "Classify this image:",
+          image: dataUrl
+        })
+      }),
+      AI_TIMEOUT
+    );
+
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    
+    const data = await response.json();
+    const reply = (data.reply || data.response || data.text || '').trim().toUpperCase();
+    
+    return reply.startsWith('NSFW');
+      
+  } catch (e) {
+    logger.warn(`Vercel vision-mod failed: ${e.message?.slice(0, 100)}`);
+    return null; 
+  }
 }
 
 
@@ -210,10 +227,10 @@ async function scanText(text) {
   // Layer 2: Groq AI for edge cases
   let aiResult = await aiCheckText(text);
   
-  // Layer 3: Gemini AI Fallback
+  // Layer 3: Vercel API Fallback
   if (aiResult === null) {
-    logger.info('Text: Groq unavailable — falling back to Gemini AI');
-    aiResult = await geminiCheckText(text);
+    logger.info('Text: Groq unavailable — falling back to Vercel API');
+    aiResult = await vercelCheckText(text);
   }
 
   if (aiResult === true)  return true;
@@ -225,12 +242,6 @@ async function scanText(text) {
 
 /**
  * Scan an image buffer. Returns true (NSFW) or false (safe). Never throws.
- *
- * Pipeline:
- *   1. Groq vision AI
- *   2. Gemini vision AI (Fallback)
- *   3. local nsfwjs ML (on-device)
- *   4. fail open
  */
 async function scanImage(imageBuffer, mime = 'image/jpeg') {
   if (!imageBuffer) return false;
@@ -238,10 +249,10 @@ async function scanImage(imageBuffer, mime = 'image/jpeg') {
   // Layer 1: Groq AI vision (primary)
   let aiResult = await aiCheckImage(imageBuffer, mime);
   
-  // Layer 2: Gemini AI vision (Fallback)
+  // Layer 2: Vercel API vision (Fallback)
   if (aiResult === null) {
-    logger.info('Image: Groq unavailable — falling back to Gemini AI');
-    aiResult = await geminiCheckImage(imageBuffer, mime);
+    logger.info('Image: Groq unavailable — falling back to Vercel API');
+    aiResult = await vercelCheckImage(imageBuffer, mime);
   }
 
   if (aiResult === true)  return true;
@@ -266,7 +277,7 @@ async function scanCaption(caption) {
     logger.warn(`NSFW [caption-rules] ${reason}`);
     return true;
   }
-  return await scanText(caption); // Reusing the scanText pipeline (Groq -> Gemini)
+  return await scanText(caption); // Reusing the scanText pipeline (Groq -> Vercel)
 }
 
 const scanContent = scanText;

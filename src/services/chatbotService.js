@@ -6,9 +6,10 @@ const config  = require('../config/index');
 // Initialize OpenRouter using the OpenAI SDK
 const openrouter = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: config.openRouterKey, // Make sure this is in your config/index.js
+  // यहाँ || 'missing-key' लगाया गया है ताकि बिना Key के ऐप क्रैश न हो
+  apiKey: config.openRouterKey || 'missing-key', 
   defaultHeaders: {
-    'HTTP-Referer': 'https://t.me/sofiya_robot', // Optional but recommended by OpenRouter
+    'HTTP-Referer': 'https://t.me/sofiya_robot', 
     'X-Title': 'Sofiya Chat Bot', 
   }
 });
@@ -84,7 +85,8 @@ const OWNER_REGEX = /\b(who(('?s| is) (your|ur|the) (owner|creator|master|lord|d
 // ── main ───────────────────────────────────────────────────────────────────────
 
 async function getHinataReply(userId, chatId, message) {
-  if (!config.openRouterKey)
+  // अगर असल Key नहीं है, तो तुरंत वापस आ जाओ
+  if (!config.openRouterKey || config.openRouterKey === 'missing-key')
     return 'My AI brain is not configured yet. Ask the owner to set OPENROUTER_API_KEY. 🌸';
 
   if (OWNER_REGEX.test(message))

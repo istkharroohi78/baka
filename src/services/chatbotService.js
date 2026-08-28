@@ -8,7 +8,7 @@ const openrouter = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: config.openRouterKey, // Make sure this is in your config/index.js
   defaultHeaders: {
-    'HTTP-Referer': 'https://t.me/sofiya_bot', // Optional but recommended by OpenRouter
+    'HTTP-Referer': 'https://t.me/sofiya_robot', // Optional but recommended by OpenRouter
     'X-Title': 'Sofiya Chat Bot', 
   }
 });

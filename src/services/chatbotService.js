@@ -1,13 +1,22 @@
+const { OpenAI } = require('openai');
 const ChatMemory = require('../models/ChatMemory');
 const logger = require('../utils/logger');
-const limiter = require('../utils/groqLimiter');
 const config  = require('../config/index');
 
-// Updated to the stable Groq model to prevent 404 errors
-const MODEL = 'llama3-8b-8192';
+// Initialize OpenRouter using the OpenAI SDK
+const openrouter = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: config.openRouterKey, // Make sure this is in your config/index.js
+  defaultHeaders: {
+    'HTTP-Referer': 'https://t.me/sofiya_bot', // Optional but recommended by OpenRouter
+    'X-Title': 'Sofiya Chat Bot', 
+  }
+});
 
-// Hard wall-clock limit for every AI chatbot call — if it doesn't respond in
-// time the user gets a polite "busy" message and the update pipeline moves on.
+// You can use any model from OpenRouter (e.g., 'meta-llama/llama-3.1-8b-instruct' or 'openai/gpt-4o-mini')
+const MODEL = 'openai/gpt-4o-mini';
+
+// Hard wall-clock limit for every AI chatbot call
 const AI_TIMEOUT_MS = 8_000;
 
 // Per-user cooldown — one reply per 10 s
@@ -75,11 +84,11 @@ const OWNER_REGEX = /\b(who(('?s| is) (your|ur|the) (owner|creator|master|lord|d
 // ── main ───────────────────────────────────────────────────────────────────────
 
 async function getHinataReply(userId, chatId, message) {
-  if (!config.groqApiKey && !config.groqApiKey2 && !config.vercelApiUrl)
-    return 'My AI brain is not configured yet. Ask the owner to set API Keys. 🌸';
+  if (!config.openRouterKey)
+    return 'My AI brain is not configured yet. Ask the owner to set OPENROUTER_API_KEY. 🌸';
 
   if (OWNER_REGEX.test(message))
-    return 'My cute owner is @aiused 👑🌸 They created me with lots of love! ✨';
+    return 'My cute owner is @sukoon_s 👑🌸 They created me with lots of love! ✨';
 
   if (isOnCooldown(userId))
     return 'Heyyy, slow down a little~ give me a moment to think 🌸';
@@ -98,77 +107,30 @@ async function getHinataReply(userId, chatId, message) {
   const system = buildSystem(mood, recentMoods);
   let finalReply = null;
 
-  // ── Attempt 1: Groq API ──
   try {
     const res = await Promise.race([
-      limiter.call((groq) =>
-        groq.chat.completions.create({
-          model: MODEL,
-          temperature: mood === 'romantic' ? 0.85 : mood === 'sad' ? 0.6 : 0.7,
-          max_tokens: 220,
-          messages: [
-            { role: 'system', content: system },
-            ...memory.messages.map(m => ({ role: m.role, content: m.content })),
-          ],
-        })
-      ),
+      openrouter.chat.completions.create({
+        model: MODEL,
+        temperature: mood === 'romantic' ? 0.85 : mood === 'sad' ? 0.6 : 0.7,
+        max_tokens: 220,
+        messages: [
+          { role: 'system', content: system },
+          ...memory.messages.map(m => ({ role: m.role, content: m.content })),
+        ],
+      }),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Groq timeout after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS)
+        setTimeout(() => reject(new Error(`OpenRouter timeout after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS)
       ),
     ]);
 
     finalReply = res.choices[0]?.message?.content?.trim() || '…';
 
-  } catch (groqError) {
-    logger.warn(`Hinata Groq error: ${groqError.message?.slice(0, 120)}. Falling back to Vercel API...`);
-  }
-
-  // ── Attempt 2: Vercel API Fallback ──
-  if (!finalReply && config.vercelApiUrl) {
-    try {
-      // Create a standard messages array payload for Vercel
-      const vercelPayload = {
-        messages: [
-          { role: 'system', content: system },
-          ...memory.messages.map(m => ({ role: m.role, content: m.content }))
-        ],
-        temperature: mood === 'romantic' ? 0.85 : mood === 'sad' ? 0.6 : 0.7
-      };
-
-      const response = await Promise.race([
-        fetch(config.vercelApiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(vercelPayload)
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Vercel timeout after ${AI_TIMEOUT_MS}ms`)), AI_TIMEOUT_MS)
-        )
-      ]);
-
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-      
-      const data = await response.json();
-      
-      // Handle various response formats depending on how your Vercel API is built
-      finalReply = (data.reply || data.response || data.text || (data.choices && data.choices[0]?.message?.content) || '').trim();
-      
-      if (finalReply) {
-        logger.info(`Hinata successfully replied using Vercel API 🌸`);
-      } else {
-        throw new Error('Vercel API returned an empty response.');
-      }
-
-    } catch (vercelError) {
-      logger.warn(`Hinata Vercel error: ${vercelError.message?.slice(0, 120)}`);
-    }
+  } catch (error) {
+    logger.warn(`Hinata OpenRouter error: ${error.message?.slice(0, 120)}`);
   }
 
   // ── Final Checks & Save Memory ──
   if (!finalReply) {
-    // If BOTH Groq and Vercel APIs fail
     finalReply = 'Mmm, I\'m a little overwhelmed right now… try again in a bit? 🌸';
   }
 

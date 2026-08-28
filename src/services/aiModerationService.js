@@ -24,15 +24,15 @@ const { classifyImage } = require('../utils/localImageClassifier');
 // Initialize OpenRouter using the OpenAI SDK
 const openrouter = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: config.openRouterKey, // Make sure to add this in config/index.js
+  // यहाँ || 'missing-key' लगाया गया है ताकि बिना Key के ऐप क्रैश न हो
+  apiKey: config.openRouterKey || 'missing-key', 
   defaultHeaders: {
-    'HTTP-Referer': 'https://t.me/sofiya_bot', // Optional: OpenRouter likes to know where requests come from
+    'HTTP-Referer': 'https://t.me/sofiya_bot', 
     'X-Title': 'Sofiya Moderation Bot', 
   }
 });
 
 // Using gpt-4o-mini via OpenRouter (Fast and supports both Text & Vision)
-// You can change this to 'google/gemini-1.5-flash' if you prefer
 const MODEL = 'openai/gpt-4o-mini'; 
 const AI_TIMEOUT = 5_000;
 
@@ -89,7 +89,8 @@ function withTimeout(promise, ms) {
 // -- OPENROUTER HANDLERS --
 
 async function aiCheckText(text) {
-  if (!config.openRouterKey) return null;
+  // अगर असल Key नहीं है, तो तुरंत वापस आ जाओ (एरर से बचने के लिए)
+  if (!config.openRouterKey || config.openRouterKey === 'missing-key') return null;
 
   try {
     const res = await withTimeout(
@@ -112,7 +113,8 @@ async function aiCheckText(text) {
 }
 
 async function aiCheckImage(buffer, mime) {
-  if (!config.openRouterKey) return null;
+  // अगर असल Key नहीं है, तो तुरंत वापस आ जाओ
+  if (!config.openRouterKey || config.openRouterKey === 'missing-key') return null;
 
   try {
     const dataUrl = `data:${mime};base64,${buffer.toString('base64')}`;

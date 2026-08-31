@@ -87,7 +87,7 @@ const OWNER_REGEX = /\b(who(('?s| is) (your|ur|the) (owner|creator|master|lord|d
 async function getHinataReply(userId, chatId, message) {
   // अगर असल Key नहीं है, तो तुरंत वापस आ जाओ
   if (!config.openRouterKey || config.openRouterKey === 'missing-key')
-    return 'My AI brain is not configured yet. Ask the owner to set OPENROUTER_API_KEY. 🌸';
+    return 'Hello Baby 😊 Im Sofiya ,a Game and management bot Type /help to know me. 🌸';
 
   if (OWNER_REGEX.test(message))
     return 'My cute owner is @sukoon_s 👑🌸 They created me with lots of love! ✨';

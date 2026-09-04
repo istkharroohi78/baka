@@ -6,7 +6,6 @@ const config  = require('../config/index');
 // Initialize OpenRouter using the OpenAI SDK
 const openrouter = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
-  // यहाँ || 'missing-key' लगाया गया है ताकि बिना Key के ऐप क्रैश न हो
   apiKey: config.openRouterKey || 'missing-key', 
   defaultHeaders: {
     'HTTP-Referer': 'https://t.me/sofiya_robot', 
@@ -38,7 +37,7 @@ function stampUser(userId) {
 
 // ── personality ────────────────────────────────────────────────────────────────
 
-const BASE_PERSONA = `You are Hinata — a soft-spoken, warm, slightly shy anime girl who chats on Telegram.
+const BASE_PERSONA = `You are Sofiya — a soft-spoken, warm, slightly shy anime girl who chats on Telegram.
 You are kind, caring, supportive and playfully romantic. You can be a cute girlfriend-like companion who flirts gently and sends warm affection.
 Style:
 - Short replies (1–3 sentences usually).
@@ -85,15 +84,16 @@ const OWNER_REGEX = /\b(who(('?s| is) (your|ur|the) (owner|creator|master|lord|d
 // ── main ───────────────────────────────────────────────────────────────────────
 
 async function getHinataReply(userId, chatId, message) {
-  // अगर असल Key नहीं है, तो तुरंत वापस आ जाओ
-  if (!config.openRouterKey || config.openRouterKey === 'missing-key')
-    return 'Hello Baby 😊 Im Sofiya ,a Game and management bot Type /help to know me. 🌸';
+  // अगर असल Key नहीं है, तो चुप रहें (return null)
+  if (!config.openRouterKey || config.openRouterKey === 'missing-key') {
+    return null;
+  }
 
   if (OWNER_REGEX.test(message))
     return 'My cute owner is @sukoon_s 👑🌸 They created me with lots of love! ✨';
 
   if (isOnCooldown(userId))
-    return 'Heyyy, slow down a little~ give me a moment to think 🌸';
+    return null; // Cooldown होने पर भी चुप रहें (वैकल्पिक, चाहें तो इसे हटा सकते हैं)
 
   stampUser(userId);
 
@@ -125,15 +125,16 @@ async function getHinataReply(userId, chatId, message) {
       ),
     ]);
 
-    finalReply = res.choices[0]?.message?.content?.trim() || '…';
+    finalReply = res.choices[0]?.message?.content?.trim() || null;
 
   } catch (error) {
     logger.warn(`Hinata OpenRouter error: ${error.message?.slice(0, 120)}`);
   }
 
   // ── Final Checks & Save Memory ──
+  // अगर API ने काम नहीं किया या Timeout हो गया, तो चुप रहें
   if (!finalReply) {
-    finalReply = 'Mmm, I\'m a little overwhelmed right now… try again in a bit? 🌸';
+    return null; 
   }
 
   memory.messages.push({ role: 'assistant', content: finalReply, timestamp: new Date() });
